@@ -1,0 +1,138 @@
+#-----------------------------------------------------------------------------#
+
+### 2.3.7 배깅, 엑스트라 트리, 에이다부스트
+
+#-----------------------------------------------------------------------------#
+
+## 필요한 모듈 임포트, 예제 데이터셋 만들기
+# two_moons 데이터셋과 cancer 데이터셋 이용
+
+# from preamble import * # 오류..
+from sklearn.model_selection import train_test_split
+from sklearn.datasets import make_moons
+from sklearn.datasets import load_breast_cancer
+
+xm,ym = make_moons(n_samples=100, noise=0.25, random_state=3)
+xm_train,xm_test,ym_train,ym_test = train_test_split(
+        xm,ym, stratify=ym, random_state=42)
+
+cancer = load_breast_cancer()
+xc_train,xc_test,yc_train,yc_test = train_test_split(
+        cancer.data, cancer.target, random_state=0)
+
+#-----------------------------------------------------------------------------#
+
+## 배깅
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import BaggingClassifier
+# oob_score 값으로 테스트 세트의 성능을 짐작할 수 있음
+bagging = BaggingClassifier(LogisticRegression(), n_estimators=100,
+                            oob_score=True, n_jobs=-1, random_state=42)
+bagging.fit(xc_train,yc_train)
+
+print('훈련 세트 정확도: {:.3f}'.format(bagging.score(xc_train,yc_train)))
+print('테스트 세트 정확도: {:.3f}'.format(bagging.score(xc_test,yc_test)))
+print('OOB 샘플의 정확도: {:.3f}'.format(bagging.oob_score_))
+
+
+# 결정 트리에 배깅 적용
+from sklearn.tree import DecisionTreeClassifier
+bagging = BaggingClassifier(DecisionTreeClassifier(), n_estimators=5,
+                            n_jobs=-1, random_state=42)
+bagging.fit(xm_train,ym_train)
+
+
+# 배깅 분류기에 있는 결정 트리의 결정 경계 시각화
+# 묶어서 돌리기
+fig,axes = plt.subplots(2,3,figsize=(10,5))
+
+for i,(ax,tree) in enumerate(zip(axes.ravel(), bagging.estimators_)):
+    ax.set_title('트리 {}'.format(i))
+    mglearn.plots.plot_tree_partition(xm,ym,tree,ax=ax)
+    
+mglearn.plots.plot_2d_separator(bagging,xm,fill=True,ax=axes[-1,-1],alpha=.4)
+axes[-1,-1].set_title('배깅')
+mglearn.discrete_scatter(xm[:,0], xm[:,1], ym)
+plt.show()
+
+
+# n_estimators=100으로 늘려서 훈련시킨 후 성능 확인
+bagging = BaggingClassifier(DecisionTreeClassifier(), n_estimators=100,
+                            oob_score=True, n_jobs=-1, random_state=42)
+bagging.fit(xc_train,yc_train)
+
+print('훈련 세트 정확도: {:.3f}'.format(bagging.score(xc_train,yc_train)))
+print('테스트 세트 정확도: {:.3f}'.format(bagging.score(xc_test,yc_test)))
+print('OOB 샘플의 정확도: {:.3f}'.format(bagging.oob_score_))
+
+#-----------------------------------------------------------------------------#
+
+## 엑스트라 트리
+
+from sklearn.ensemble import ExtraTreesClassifier
+xtree = ExtraTreesClassifier(n_estimators=5, n_jobs=-1, random_state=0)
+xtree.fit(xm_train, ym_train)
+
+
+# two-moons 데이터셋에 엑스트라 트리 적용해서 결정 경계 확인
+# 묶어서 돌리기
+fig,axes = plt.subplots(2,3,figsize=(10,5))
+
+for i,(ax,tree) in enumerate(zip(axes.ravel(), xtree.estimators_)):
+    ax.set_title('트리 {}'.format(i))
+    mglearn.plots.plot_tree_partition(xm,ym,tree,ax=ax)
+
+mglearn.plots.plot_2d_separator(xtree,xm,fill=True,ax=axes[-1,-1],alpha=.4)
+axes[-1,-1].set_title('엑스트라 트리')
+mglearn.discrete_scatter(xm[:,0],xm[:,1],ym)
+plt.show()
+
+
+# cancer 데이터셋에 엑스트라 트리 적용, 트리 개수는 100
+xtree = ExtraTreesClassifier(n_estimators=100, n_jobs=-1, random_state=0)
+xtree.fit(xc_train,yc_train)
+
+print('훈련 세트 정확도: {:.3f}'.format(xtree.score(xc_train,yc_train)))
+print('테스트 세트 정확도: {:.3f}'.format(xtree.score(xc_test,yc_test)))
+
+#-----------------------------------------------------------------------------#
+
+## 에이다부스트
+
+# 순차적으로 학습해야 하므로 n_jobs 매개변수를 지원하지 않음
+
+from sklearn.ensemble import AdaBoostClassifier
+ada = AdaBoostClassifier(n_estimators=5, random_state=42)
+ada.fit(xm_train,ym_train)
+
+# 묶어서 돌리기
+fig,axes = plt.subplots(2,3,figsize=(10,5))
+
+for i,(ax,tree) in enumerate(zip(axes.ravel(), ada.estimators_)):
+    ax.set_title('트리 {}'.format(i))
+    mglearn.plots.plot_tree_partition(xm,ym,tree,ax=ax)
+    
+mglearn.plots.plot_2d_separator(ada,xm,fill=True,ax=axes[-1,-1],alpha=.4)
+axes[-1,-1].set_title('에이다부스트')
+mglearn.discrete_scatter(xm[:,0],xm[:,1],ym)
+plt.show()
+
+
+# 아주 얕은 트리를 앙상블했기 때문에 일반화 성능이 조금 더 향상됨
+ada = AdaBoostClassifier(n_estimators=100, random_state=42)
+ada.fit(xc_train,yc_train)
+
+print('훈련 세트 정확도: {:.3f}'.format(ada.score(xc_train,yc_train)))
+print('테스트 세트 정확도: {:.3f}'.format(ada.score(xc_test,yc_test)))
+
+
+# 오류..?
+plt.barh(range(n_features), ada.feature_importances_, align='center')
+plt.yticks(np.arange(n_features), cancer.feature_names)
+plt.xlabel('특성 중요도')
+plt.ylabel('특성')
+plt.ylim(-1, n_features)
+plt.show()
+
+#-----------------------------------------------------------------------------#

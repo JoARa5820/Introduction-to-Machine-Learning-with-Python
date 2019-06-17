@@ -1,0 +1,162 @@
+#-----------------------------------------------------------------------------#
+
+### 2.3.8 커널 서포트 벡터 머신
+
+#-----------------------------------------------------------------------------#
+
+## 선형 모델과 비선형 특성
+
+x,y = make_blobs(centers=4, random_state=8)
+y = y % 2
+
+
+# 선형적으로 구분되지 않는 클래스를 가진 이진 분류 데이터셋
+# 묶어서 돌리기
+mglearn.discrete_scatter(x[:,0],x[:,1],y)
+plt.xlabel('특성 0')
+plt.ylabel('특성 1')
+
+
+# 선형 SVM으로 만들어진 결정 경계
+from sklearn.svm import LinearSVC
+linear_svm = LinearSVC().fit(x,y)
+
+# 묶어서 돌리기
+mglearn.plots.plot_2d_separator(linear_svm, x)
+mglearn.discrete_scatter(x[:,0],x[:,1],y)
+plt.xlabel('특성 0')
+plt.ylabel('특성 1')
+
+
+
+# *특성 1에서 유용한 세 번째 특성을 추가하여 3차원으로 확장한 데이터셋
+# 묶어서 돌리기
+# 두 번째 특성을 제곱하여 추가하기
+x_new = np.hstack([x,x[:,1:]**2])
+from mpl_toolkits.mplot3d import Axes3D, axes3d
+figure = plt.figure()
+# 3차원 그래프
+ax = Axes3D(figure, elev=152, azim=-26)
+# y==0인 포인트를 먼저 그리고 그 다음 y==1인 포인트를 그림
+mask = y == 0
+ax.scatter(x_new[mask,0], x_new[mask,1], x_new[mask,2], c='b',
+           cmap=mglearn.cm2, s=60, edgecolor='k')
+ax.scatter(x_new[~mask,0], x_new[~mask,1], x_new[~mask,2], c='r', marker='^',
+           cmap=mglearn.cm2, s=60, edgecolor='k')
+ax.set_xlabel('특성 0')
+ax.set_ylabel('특성 1')
+ax.set_zlabel('특성 1 ** 2')
+
+
+
+# *확장된 3차원 데이터셋에서 선형 SVM이 만든 결정 경계
+linear_svm_3d = LinearSVC().fit(x_new,y)
+coef,intercept = linear_svm_3d.coef_.ravel(), linear_svm_3d.intercept_
+# 선형 결정 경계 그리기
+figure = plt.figure()
+ax = Axes3D(figure, elev=-152, azim=-26)
+xx = np.linspace(x_new[:,0].min()-2, x_new[:,0].max()+2, 50)
+yy = np.linspace(x_new[:,1].min()-2, x_new[:,1].max()+2, 50)
+
+xx,yy = np.meshgrid(xx,yy)
+zz = (coef[0]*xx + coef[1]*yy + intercept) / -coef[2]
+ax.plot_surface(xx,yy,zz, rstride=8, cstride=8, alpha=0.3)
+ax.scatter(x_new[mask,0], x_new[mask,1], x_new[mask,2], c='b',
+           cmap=mglearn.cm2, s=60, edgecolor='k')
+ax.scatter(x_new[~mask,0], x_new[~mask,1], x_new[~mask,2], c='r', marker='^',
+           cmap=mglearn.cm2, s=60, edgecolor='k')
+
+ax.set_xlabel('특성 0')
+ax.set_ylabel('특성 1')
+ax.set_zlabel('특성 1 ** 2')
+
+
+# 원래 두 개 특성에 투영한 (앞의 3차원 그래프의)결정 경계
+zz = yy ** 2
+dec = linear_svm_3d.decision_function(np.c_[xx.ravel(), yy.ravel(), zz.ravel()])
+plt.contourf(xx, yy, dec.reshape(xx.shape), levels=[dec.min(), 0, dec.max()],
+             cmap=mglearn.cm2, alpha=0.5)
+mglearn.discrete_scatter(x[:,0], x[:,1], y)
+plt.xlabel('특성 0')
+plt.ylabel('특성 1')
+
+#-----------------------------------------------------------------------------#
+
+## SVM 이해하기
+
+# RBF 커널을 사용한 SVM으로 만든 결정 경계와 서포트 벡터
+from sklearn.svm import SVC
+x,y = mglearn.tools.make_handcrafted_dataset()
+svm = SVC(kernel='rbf', C=10, gamma=0.1).fit(x,y)
+
+# 묶어서 돌리기
+# 물결 그래프
+mglearn.plots.plot_2d_separator(svm,x,eps=0.5)
+# 데이터 포인트 그리기
+mglearn.discrete_scatter(x[:,0],x[:,1],y)
+# 서포트 벡터
+sv = svm.support_vectors_
+# dual_coef_의 부호에 의해 서포트 벡터의 클래스 레이블이 결정됨
+sv_labels = svm.dual_coef_.ravel() > 0
+mglearn.discrete_scatter(sv[:,0], sv[:,1], sv_labels, s=15, markeredgewidth=3)
+plt.xlabel('특성 0')
+plt.ylabel('특성 1')
+
+#-----------------------------------------------------------------------------#
+
+## SVM 매개변수 튜닝
+fig,axes = plt.subplots(3,3, figsize=(15,10))
+
+for ax,C in zip(axes,[-1,0,3]):
+    for a,gamma in zip(ax, range(-1,2)):
+        mglearn.plots.plot_svm(log_C=C, log_gamma=gamma, ax=a)
+
+axes[0,0].legend(['클래스 0','클래스 1','클래스 0 서포트 벡터','클래스 1 서포트 벡터'], ncol=4, loc=(.9, 1.2))
+
+
+# RBF 커널 SVM을 유방암 데이터셋에 적용 / 기본값 C=1, gamma=1/n_features
+x_train,x_test,y_train,y_test = train_test_split(
+        cancer.data, cancer.target, random_state=0)
+
+svc = SVC()
+svc.fit(x_train,y_train)
+
+print('훈련 세트 정확도: {:.2f}'.format(svc.score(x_train,y_train)))
+print('테스트 세트 정확도: {:.2f}'.format(svc.score(x_test,y_test)))
+
+
+# 유방암 데이터셋의 특성 값 범위 (y축은 로그 스케일)
+plt.boxplot(x_train,manage_xticks=False)
+plt.yscale('symlog')
+plt.xlabel('특성 목록')
+plt.ylabel('특성 크기')
+
+#-----------------------------------------------------------------------------#
+
+## SVM을 위한 데이터 전처리
+
+# 훈련 세트에서 특성별 최솟값 계산
+min_on_training = x_train.min(axis=0)
+# 훈련 세트에서 특성별 (최댓값 - 최솟값) 범위 계산
+range_on_training = (x_train - min_on_training).max(axis=0)
+# 훈련 데이터에 최솟값을 빼고 범위로 나누면 각 특성에 대해 최솟값은 0, 최댓값은 1임
+x_train_scaled = (x_train - min_on_training) / range_on_training
+print('특성별 최솟값\n', x_train_scaled.min(axis=0))
+print('특성별 최댓값\n', x_train_scaled.max(axis=0))
+
+
+## 테스트 세트에도 같은 작업을 적용하지만 훈련 세트에서 계산한 최솟값과 범위를 사용
+x_test_scaled = (x_test - min_on_training) / range_on_training
+svc = SVC()
+svc.fit(x_train_scaled, y_train)
+print('훈련 세트 정확도: {:.3f}'.format(svc.score(x_train_scaled, y_train)))
+print('테스트 세트 정확도: {:.3f}'.format(svc.score(x_test_scaled, y_test)))
+
+
+# (아래) C 값을 증가시켰더니 모델의 성능이 향상됨
+svc = SVC(C=1000)
+svc.fit(x_train_scaled, y_train)
+print('훈련 세트 정확도: {:.3f}'.format(svc.score(x_train_scaled, y_train)))
+print('테스트 세트 정확도: {:.3f}'.format(svc.score(x_test_scaled, y_test)))
+
+#-----------------------------------------------------------------------------#

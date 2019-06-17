@@ -1,0 +1,22 @@
+## version 확인하기
+
+import sys
+print('python 버전:', sys.version)
+
+import pandas as pd
+print('pandas 버전:', pd.__version__)
+
+import matplotlib
+print('matplotlib 버전:', matplotlib.__version__)
+
+import numpy as np
+print('numpy 버전:', np.__version__)
+
+import scipy as sp
+print('scipy 버전:', sp.__version__)
+
+import IPython
+print('IPython 버전:', IPython.__version__)
+
+import sklearn
+print('scikit-learn 버전:', sklearn.__version__)

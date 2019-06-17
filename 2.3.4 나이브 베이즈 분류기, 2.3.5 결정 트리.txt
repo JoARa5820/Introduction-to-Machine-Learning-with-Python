@@ -1,0 +1,135 @@
+#-----------------------------------------------------------------------------#
+
+### 2.3.4 나이브 베이즈 분류기
+
+#-----------------------------------------------------------------------------#
+
+x = np.array([[0,1,0,1],
+              [1,0,1,1],
+              [0,0,0,1],
+              [1,0,1,0]])
+y = np.array([0,1,0,1])
+
+
+counts = {}
+for label in np.unique(y):
+    # 각 클래스에 대해 반복
+    # 특성마다 1이 나타난 횟수를 셈
+    counts[label] = x[y==label].sum(axis=0)
+print('특성 카운트:\n',counts)
+
+#-----------------------------------------------------------------------------#
+
+### 2.3.5 결정 트리
+
+#-----------------------------------------------------------------------------#
+
+## 결정 트리 복잡도 제어하기
+from sklearn.tree import DecisionTreeClassifier
+
+cancer = load_breast_cancer()
+x_train,x_test,y_train,y_test = train_test_split(
+        cancer.data, cancer.target, stratify = cancer.target, random_state=42)
+tree = DecisionTreeClassifier(random_state=0)
+tree.fit(x_train,y_train)
+print('훈련 세트 정확도: {:.3f}'.format(tree.score(x_train,y_train)))
+print('데이터 세트 정확도: {:.3f}'.format(tree.score(x_test,y_test)))
+
+
+# 트리 깊이 제한하기
+tree = DecisionTreeClassifier(max_depth=4, random_state=0)
+tree.fit(x_train,y_train)
+print('훈련 세트 정확도: {:.3f}'.format(tree.score(x_train,y_train)))
+print('데이터 세트 정확도: {:.3f}'.format(tree.score(x_test,y_test)))
+
+#-----------------------------------------------------------------------------#
+
+## 결정 트리 분석
+from sklearn.tree import export_graphviz
+export_graphviz(tree, out_file='tree.dot', class_names=['악성','양성'],
+                feature_names = cancer.feature_names, impurity=False, filled=True)
+
+
+# pip install graphviz
+
+# graphviz 모듈로 시각화하기
+## ??? dot파일 때문에 오류 뜸
+import graphviz
+
+with open('tree.dot') as f:
+    dot_graph = f.read()
+    display(graphviz.Source(dot_graph))
+
+# UnicodeDecodeError: 'cp949' codec can't decode byte 0xec in position 144: illegal multibyte sequence : 오류 뜸
+# 해결법: open('파일경로.txt', 'rt', encoding='UTF8')로 열기
+
+#-----------------------------------------------------------------------------#
+
+## 트리의 특성 중요도
+
+# 각 특성의 중요도를 평가 / 특성 중요도의 전체 합은 1임
+print('특성 중요도:\n', tree.feature_importances_)
+
+
+# 유방암 데이터로 학습시킨 결정 트리의 특성 중요도
+def plot_feature_importances_cancer(model):
+    n_features = cancer.data.shape[1]
+    plt.barh(np.arange(n_features), model.feature_importances_, align='center')
+    plt.yticks(np.arange(n_features), cancer.feature_names)
+    plt.xlabel('특성 중요도')
+    plt.ylabel('특성')
+    plt.ylim(-1, n_features)
+    
+# 시각화
+plot_feature_importances_cancer(tree)
+
+
+tree = mglearn.plots.plot_tree_not_monotone()
+#display(tree) # 오류..
+
+#-----------------------------------------------------------------------------#
+
+# 컴퓨터 메모리 가격 동향 데이터셋 이용
+import os
+
+ram_prices = pd.read_csv(os.path.join(mglearn.datasets.DATA_PATH,'ram_price.csv'))
+
+# 로그 스케일로 그린 램 가격 동향
+# 묶어서 돌리기
+plt.yticks(fontname = 'Arial')
+plt.semilogy(ram_prices.date, ram_prices.price)
+plt.xlabel('년')
+plt.ylabel('가격 ($/Mbyte)')
+
+
+from sklearn.tree import DecisionTreeRegressor
+data_train = ram_prices[ram_prices.date < 2000]
+data_test = ram_prices[ram_prices.date >= 2000]
+
+# 가격 예측을 위해 날짜 특성만 이용
+x_train = data_train.date[:, np.newaxis]
+
+# 데이터와 타깃 사이의 관계를 간단하게 만들기 위해 로그 스케일로 바꿈
+y_train = np.log(data_train.price)
+
+tree = DecisionTreeRegressor().fit(x_train,y_train)
+linear_reg = LinearRegression().fit(x_train,y_train)
+
+# 예측은 전체 기간에 대해서 수행
+x_all = ram_prices.date[:, np.newaxis]
+
+pred_tree = tree.predict(x_all)
+pred_lr = linear_reg.predict(x_all)
+
+# 예측한 값의 로그 스케일을 되돌림
+price_tree = np.exp(pred_tree)
+price_lr = np.exp(pred_lr)
+
+
+plt.semilogy(data_train.date, data_train.price, label='훈련 데이터')
+plt.semilogy(data_test.date, data_test.price, label='테스트 데이터')
+plt.semilogy(ram_prices.date, price_tree, label='트리 예측')
+plt.semilogy(ram_prices.date, price_lr, label='선형회귀 예측')
+plt.legend()
+
+#-----------------------------------------------------------------------------#
